@@ -189,23 +189,34 @@ ZPROFILE_CONTENT
 echo "  ~/.zprofile written."
 
 # -----------------------------------------------------------------------------
-# 10. iTerm2 preferences
+# 10. iTerm2 profile (colors, font, settings via Dynamic Profiles)
 # -----------------------------------------------------------------------------
-info "Configuring iTerm2 preferences..."
+info "Installing iTerm2 profile..."
 
-# Set font to JetBrains Mono Nerd Font 16pt in the Default profile
-# (This patches the live defaults — open iTerm2 after running this script)
-PROFILE_GUID=$(defaults read com.googlecode.iterm2 'New Bookmarks' 2>/dev/null \
-  | grep -A2 '"Name" = "Default"' | grep "Guid" | sed 's/.*= "\(.*\)".*/\1/' | head -1 || true)
+DYNAMIC_PROFILES_DIR="$HOME/Library/Application Support/iTerm2/DynamicProfiles"
+mkdir -p "$DYNAMIC_PROFILES_DIR"
 
-defaults write com.googlecode.iterm2 "Default Bookmark Guid" -string "$PROFILE_GUID" 2>/dev/null || true
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROFILE_SRC="$SCRIPT_DIR/Profile.json"
 
-# Point iTerm2 to load prefs from this directory if you want shared config:
-# defaults write com.googlecode.iterm2 PrefsCustomFolder -string "$(pwd)"
-# defaults write com.googlecode.iterm2 LoadPrefsFromCustomFolder -bool true
-
-warning "Font will be applied the first time you open iTerm2 after install."
-warning "In iTerm2: Preferences > Profiles > Default > Text > Font → JetBrainsMonoNFM-Regular 16"
+if [ -f "$PROFILE_SRC" ]; then
+  # Dynamic Profiles expects an array under a "Profiles" key
+  python3 -c "
+import json, sys
+with open('$PROFILE_SRC') as f:
+    profile = json.load(f)
+wrapped = {'Profiles': [profile]}
+with open('$DYNAMIC_PROFILES_DIR/Default.json', 'w') as f:
+    json.dump(wrapped, f, indent=2)
+print('  Profile written to Dynamic Profiles.')
+"
+  # Set this profile as the default bookmark
+  PROFILE_GUID="BEE5521D-1E6B-4408-A3C2-38A99F60F111"
+  defaults write com.googlecode.iterm2 "Default Bookmark Guid" -string "$PROFILE_GUID" 2>/dev/null || true
+  info "iTerm2 profile applied (colors, font, settings). No restart needed — open a new window."
+else
+  warning "Profile.json not found next to install script — skipping profile install."
+fi
 
 # -----------------------------------------------------------------------------
 # Done
@@ -214,10 +225,8 @@ echo ""
 echo -e "${GREEN}✓ Setup complete!${NC}"
 echo ""
 echo "Next steps:"
-echo "  1. Restart your terminal (or open a new iTerm2 window)"
+echo "  1. Open a new iTerm2 window (profile loads automatically)"
 echo "  2. On first launch, zplug will prompt to install Pure — type y"
-echo "  3. In iTerm2 → Preferences → Profiles → Default → Text:"
-echo "       Set font to: JetBrains Mono Nerd Font, size 16"
 echo ""
 echo "Key features installed:"
 echo "  eza   → ls / ll / la  (icons + git status)"
